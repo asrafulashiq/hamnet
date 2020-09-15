@@ -4,7 +4,7 @@ import matplotlib
 from matplotlib.pyplot import xlim
 import numpy as np
 import pandas as pd
-from config import class_dict
+# from config import class_dict
 from scipy.interpolate import interp1d
 import os
 import torch

@@ -24,12 +24,7 @@ def parse_args(parser=None):
     parser.add_argument("--scale", type=int, default=1)
     parser.add_argument("--feature-size", type=int, default=2048)
     parser.add_argument("--num-segments", type=int, default=750)
-    parser.add_argument('--modal',
-                        type=str,
-                        default='all',
-                        choices=['rgb', 'flow', 'all'])
     parser.add_argument('--ckpt',
-                        '--model_file',
                         type=str,
                         default=None,
                         help='the path of pre-trained model file')
@@ -46,7 +41,6 @@ def parse_args(parser=None):
                         type=float,
                         default=1e-4,
                         help='learning rates for steps(list form)')
-    parser.add_argument('--num-iters', type=int, default=10000)
     parser.add_argument("--max-epoch", type=int, default=200)
 
     # ----------------------------------- other ---------------------------------- #
