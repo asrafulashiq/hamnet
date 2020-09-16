@@ -1,13 +1,16 @@
+import numpy as np
 import torch
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
-from colorama import init
+from colorama import init, Fore
 import os
 import argparse
 from options import parse_args
 import utils
 import system
+from loguru import logger
 from system.system_th import LightningSystem
+# from system.system_bas_adl import LightningSystem
 
 init(autoreset=True)
 
@@ -66,6 +69,7 @@ if __name__ == "__main__":
         progress_bar_refresh_rate=config.progress_refresh,
         fast_dev_run=False,
         callbacks=[system.LatestCheckpoint(config.save_path, verbose=False)],
+        # gradient_clip_val=config.gradient_clip_val,
         num_sanity_val_steps=0)
 
     if config.test:

@@ -1,8 +1,13 @@
 from loguru import logger
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
 import numpy as np
 import utils
+import os
+import json
 from eval.eval_detection import ANETdetection
+from tqdm import tqdm
 from collections import defaultdict
 from eval.utils_eval import getClassificationMAP
 
@@ -40,8 +45,13 @@ class Tester():
         if _label.sum() == 0:
             return
 
+        # if self.config.lm_2 == 0:
+        #     element_logits, _, _, element_atn = net(features)
+        # else:
         elem, _, _, element_atn = net(features)
 
+        # _min = elem.min(dim=-2, keepdim=True)[0]
+        # element_logits = (elem - _min) * element_atn + _min
         element_logits = elem * element_atn
 
         label_np = _label.squeeze().cpu().numpy()
@@ -52,6 +62,7 @@ class Tester():
         self.class_true.append(label_np)
         self.class_pred.append(pred_vid_score)
 
+        # self.config.class_thresh = pred_vid_score.max() * 0.9
         score_np[score_np < self.config.class_thresh] = 0
         score_np[score_np >= self.config.class_thresh] = 1
 
@@ -80,9 +91,12 @@ class Tester():
             cas_pred = cas_supp[0].cpu().numpy()[:, pred]
             num_segments = cas_pred.shape[0]
             cas_pred = np.reshape(cas_pred, (num_segments, -1, 1))
+            cas_pred = utils.upgrade_resolution(cas_pred, self.config.scale)
 
             cas_pred_atn = cas_supp_atn[0].cpu().numpy()[:, [0]]
             cas_pred_atn = np.reshape(cas_pred_atn, (num_segments, -1, 1))
+            cas_pred_atn = utils.upgrade_resolution(cas_pred_atn,
+                                                    self.config.scale)
 
             proposal_dict = {}
 
@@ -98,10 +112,7 @@ class Tester():
 
                 for c in range(len(pred)):
                     pos = np.where(cas_temp_atn[:, 0, 0] > act_thresh[i])
-                    if self.config.cas_with_attn == 'true':
-                        pos = np.where(cas_temp_atn[:, 0, 0] > act_thresh[i])
-                    else:
-                        pos = np.where(cas_norm[:, c, 0] > act_thresh[i])
+                    # pos = np.where(cas_norm[:, c, 0] > act_thresh[i])
                     seg_list.append(pos)
 
                 proposals = utils.get_proposal_oic(seg_list,
@@ -128,7 +139,7 @@ class Tester():
             final_proposals = []
             for class_id in proposal_dict.keys():
                 final_proposals.append(
-                    utils.nms(proposal_dict[class_id], 0.7, sigma=0.3))
+                    utils.soft_nms(proposal_dict[class_id], 0.7, sigma=0.3))
             self.final_res["results"][vid_name[0]] = utils.result2json(
                 final_proposals, class_dict)
 
@@ -156,10 +167,46 @@ class Tester():
             logger.info(f"mAP@{tIoU_thresh[i]:.2f} :: {mAP[i]*100: .2f} %")
 
         logger.info(f"Average mAP {average_mAP * 100: .2f} %")
+        # logger.info(f"\nClass wise scores:\n" + str(details.to_markdown()))
 
         class_mAP = getClassificationMAP(np.array(self.class_pred),
                                          np.array(self.class_true))
         logger.info(f"Classification mAP {class_mAP:.2f} %")
         logger.info(f"Classification accuracy {test_acc * 100: .2f} %")
+
+        if self.config.save_pred is not None:
+            # save prediction to a file
+            data_save = {}
+            data_save["df_loc"] = details
+            data_save["class_mAP"] = class_mAP
+            data_save["class_accuracy"] = test_acc
+            data_save["df_gt"] = anet_detection.ground_truth
+            data_save["df_pred"] = self.dict_pred
+            np.save(str(self.config.save_pred), data_save)
+
+        # For debug
+        if __debug__:
+            gt = anet_detection.ground_truth
+            pr = anet_detection.prediction
+
+            def fn(x, n):
+                return x[x['video-id'] == n].sort_values('t-start')
+
+            pass
+
+        if self.config.plot:
+            from utils import PlotCam
+
+            filepath = os.path.join(self.config.output_path,
+                                    self.config.model_name + ".pdf")
+            plotter = PlotCam(
+                filepath,
+                class_dict=class_dict,
+            )
+            plotter.plot(anet_detection.ground_truth,
+                         self.dict_pred,
+                         total_images=self.config.plot_total_images,
+                         shuffle=False,
+                         seed=self.config.seed)
 
         return average_mAP

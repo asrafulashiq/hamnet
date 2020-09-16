@@ -52,21 +52,15 @@ class LightningSystem(pl.LightningModule):
                             type=str,
                             default="Thumos14reduced")
 
+        parser.add_argument("--scale", type=int, default=1)
         parser.add_argument("--lr", type=float, default=1e-5)
 
-        parser.add_argument("--lm_1_orig", type=float, default=1)
-        parser.add_argument("--lm_1_drop", type=float, default=1)
-        parser.add_argument("--lm_2_orig", type=float, default=1)
-        parser.add_argument("--lm_2_drop", type=float, default=1)
-
+        parser.add_argument("--lm_1", type=float, default=1)
+        parser.add_argument("--lm_2", type=float, default=1)
         parser.add_argument("--gradient_clip_val", type=float, default=1)
 
         parser.add_argument("--drop-thres", type=float, default=0.2)
         parser.add_argument("--drop-prob", type=float, default=0.2)
-
-        parser.add_argument("--lm_drop", type=float, default=0.2)
-        parser.add_argument("--lm_mil", type=float, default=0.8)
-
         parser.add_argument('--gamma-oic', type=float, default=0.2)
         parser.add_argument('--adl-include-min', type=str, default='true')
 
@@ -106,7 +100,7 @@ class LightningSystem(pl.LightningModule):
             num_workers=self.hparams.num_workers)
         return dataloader
 
-    def test_dataloader(self):
+    def val_dataloader(self):
         dataset = data_loader.Dataset(self.hparams,
                                       mode='test',
                                       sampling='all')
@@ -121,6 +115,9 @@ class LightningSystem(pl.LightningModule):
             num_workers=self.hparams.num_workers)
         self.class_dict = dataset.class_dict
         return dataloader
+
+    def test_dataloader(self):
+        return self.val_dataloader()
 
     # ---------------------------------- config ---------------------------------- #
     def configure_optimizers(self):
@@ -138,11 +135,17 @@ class LightningSystem(pl.LightningModule):
         return result
 
     # -------------------------------- validation -------------------------------- #
-    def _eval_step(self, batch, batch_idx, mode='val'):
+    def validation_step(self, batch, batch_idx):
+        return self._validation_step(batch, batch_idx, mode='val')
+
+    def validation_epoch_end(self, outputs):
+        return self._validation_epoch_end(outputs, mode='val')
+
+    def _validation_step(self, batch, batch_idx, mode='val'):
         self.tester.eval_one_batch(batch, self, self.class_dict)
         return {}
 
-    def _eval_epoch_end(self, outputs, mode='val'):
+    def _validation_epoch_end(self, outputs, mode='val'):
         mAP = self.tester.final(logger=self.logger.experiment,
                                 class_dict=self.class_dict)
 
@@ -161,10 +164,10 @@ class LightningSystem(pl.LightningModule):
 
     # ----------------------------------- test ----------------------------------- #
     def test_step(self, batch, batch_idx):
-        return self._eval_step(batch, batch_idx, mode='test')
+        return self._validation_step(batch, batch_idx, mode='test')
 
     def test_epoch_end(self, outputs):
-        return self._eval_epoch_end(outputs, mode='test')
+        return self._validation_epoch_end(outputs, mode='test')
 
     # ------------------------------ loss functions ------------------------------ #
 
@@ -212,11 +215,13 @@ class LightningSystem(pl.LightningModule):
                                             rat=self.hparams.rat,
                                             reduce=None)
 
-        loss_base = (self.hparams.lm_1_orig * loss_1_orig +
-                     self.hparams.lm_2_orig * loss_2_orig_supp).mean()
-        loss_drop = (self.hparams.lm_1_drop * loss_1_drop +
-                     self.hparams.lm_2_drop * loss_2_drop_supp).mean()
+        wt = self.hparams.drop_prob
 
+        loss_1 = (wt * loss_1_drop + (1 - wt) * loss_1_orig).mean()
+
+        loss_2 = (wt * loss_2_drop_supp + (1 - wt) * loss_2_orig_supp).mean()
+
+        # loss_norm = torch.mean(torch.norm(element_atn, p=1, dim=-2))
         elem_sort = element_atn.sort(dim=-2)[0]
 
         loss_norm = elem_sort[:, :int(self.hparams.num_segments *
@@ -226,18 +231,24 @@ class LightningSystem(pl.LightningModule):
         loss_guide = (1 - element_atn -
                       element_logits.softmax(-1)[..., [-1]]).abs().mean()
 
-        total_loss = (self.hparams.lm_mil * loss_base +
-                      self.hparams.lm_drop * loss_drop +
+        # loss_ex = (-atn_supp * torch.log(atn_supp + 1e-5)).mean()
+        # loss_ex = 0
+
+        # total loss
+        total_loss = (self.hparams.lm_1 * loss_1 + self.hparams.lm_2 * loss_2 +
                       self.hparams.alpha * loss_norm +
                       self.hparams.beta * loss_guide)
+        #   self.hparams.gamma * loss_top +
+        # self.hparams.lm_cont * loss_cont + self.hparams.lm_sup * loss_sup)
         tqdm_dict = {
             "loss_train": total_loss,
-            "loss_base": loss_base,
-            "loss_drop": loss_drop,
+            "loss_1": loss_1,
+            "loss_2": loss_2,
             "loss_1o": loss_1_orig.mean(),
             "loss_1d": loss_1_drop.mean(),
             "loss_2o": loss_2_orig_supp.mean(),
             "loss_2d": loss_2_drop_supp.mean(),
+            # "loss_ex": loss_ex,
             "loss_norm": loss_norm,
             "loss_guide": loss_guide,
         }
@@ -311,15 +322,26 @@ class Model_BaS(nn.Module):
             _kernel = None
 
         self.classifier = nn.Sequential(
-            nn.Conv1d(n_feature, n_feature, 3, padding=1), nn.LeakyReLU(0.2),
-            nn.Conv1d(n_feature, n_feature, 3, padding=1), nn.LeakyReLU(0.2),
-            nn.Dropout(0.7), nn.Conv1d(n_feature, n_class + 1, 1))
+            nn.Conv1d(n_feature, n_feature, 3, padding=1),
+            nn.LeakyReLU(0.2),
+            nn.Conv1d(n_feature, n_feature, 3, padding=1),
+            nn.LeakyReLU(0.2),
+            # nn.BatchNorm1d(n_feature),
+            nn.Dropout(0.7),
+            # nn.Conv1d(n_feature, n_feature, 13, padding=6, groups=n_feature),
+            # nn.LeakyReLU(0.2),
+            nn.Conv1d(n_feature, n_class + 1, 1),
+            (nn.AvgPool1d(
+                _kernel, 1, padding=_kernel // 2, count_include_pad=True)
+             if _kernel is not None else nn.Identity()))
 
-        self.attention = nn.Sequential(nn.Conv1d(n_feature, 512, 3, padding=1),
-                                       nn.LeakyReLU(0.2),
-                                       nn.Conv1d(512, 512, 3, padding=1),
-                                       nn.LeakyReLU(0.2), nn.Conv1d(512, 1, 1),
-                                       nn.Sigmoid())
+        self.attention = nn.Sequential(
+            nn.Conv1d(n_feature, 512, 3, padding=1), nn.LeakyReLU(0.2),
+            nn.Conv1d(512, 512, 3,
+                      padding=1), nn.LeakyReLU(0.2), nn.Conv1d(512, 1, 1),
+            nn.Sigmoid(), (nn.AvgPool1d(
+                _kernel, 1, padding=_kernel // 2, count_include_pad=True)
+                           if _kernel is not None else nn.Identity()))
 
         self.adl = ADL(drop_thres=args.drop_thres, drop_prob=args.drop_prob)
         self.apply(init_weights)
@@ -348,6 +370,8 @@ class ADL(nn.Module):
 
         if not self.training:
             return x_atn, x_atn
+            # _rand = torch.zeros((B, 1)).type_as(x)
+            # return (x - _min) * x_atn + _min, _rand
 
         # important mask
         mask_imp = x_atn
@@ -359,6 +383,6 @@ class ADL(nn.Module):
             _thres = (atn_max - atn_min) * self.drop_thres + atn_min
         else:
             _thres = x_atn.max(dim=-1, keepdim=True)[0] * self.drop_thres
-        drop_mask = (x_atn > _thres).type_as(x) * x_atn
+        drop_mask = (x_atn < _thres).type_as(x) * x_atn
 
         return mask_imp, drop_mask
