@@ -111,15 +111,8 @@ class Dataset():
         feature = self.features[index]
         vid_name = self.videoname[index].decode()
         num_seg = feature.shape[0]
-        # duration = self.duration[index][0]
         segments = self.segments[index]
         labs = self.labels_index[index]
-
-        # segm = np.zeros((num_seg, 1), dtype=np.float32)
-        # for ret in segments:
-        #     ss, ee = ret
-        #     ss, ee = int(ss * 25/16), int(ee * 25/16)
-        #     segm[ss:ee+1] = 1
 
         segm = np.zeros((num_seg, self.num_class + 1), dtype=np.float32)
         for ret, _lab in zip(segments, labs):

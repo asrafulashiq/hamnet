@@ -3,9 +3,12 @@ from pytorch_lightning.callbacks import Callback
 from loguru import logger
 import pytorch_lightning as pl
 import torch
-import sys
 import os
 from tqdm import tqdm
+from pytorch_lightning.utilities.distributed import rank_zero_only
+from colorama import init, Fore
+
+init(autoreset=True)
 
 
 class LatestCheckpoint(Callback):
@@ -25,29 +28,6 @@ class LatestCheckpoint(Callback):
 
             if self.verbose:
                 logger.debug(f"SAVE CHECKPOINT : {path_to_save}")
-
-
-class BestCheckpoint(Callback):
-    """ save latest checkpoint """
-    def __init__(self, ckpt_path, best_value=-1, period=1, verbose=False):
-        super().__init__()
-        self.period = period
-        self.ckpt_path = ckpt_path
-        self.verbose = verbose
-        self.best_value = best_value
-        self.path_to_save = os.path.join(self.ckpt_path, "best.ckpt")
-        os.makedirs(self.ckpt_path, exist_ok=True)
-
-    def on_epoch_end(self, trainer: pl.Trainer, pl_module: pl.LightningModule):
-        if (trainer.current_epoch + 1) % self.period == 0:
-            if len(trainer.logger.metrics
-                   ) > 0 and trainer.logger.metrics[-1] > self.best_value:
-                trainer.save_checkpoint(self.path_to_save)
-                self.best_value = trainer.logger.metrics[-1]
-                if self.verbose:
-                    logger.debug(
-                        f"SAVE CHECKPOINT : {self.path_to_save} for value {trainer.logger.metrics[-1]:.4f}"
-                    )
 
 
 class CustomLogger(LightningLoggerBase):
@@ -81,25 +61,43 @@ class CustomLogger(LightningLoggerBase):
     def experiment(self):
         return self.logger
 
-    def log_metrics(self, metrics, step=None):
-        _str = ""
-        for k, v in metrics.items():
-            if isinstance(v, torch.Tensor):
-                v = v.item()
-            _str += f"{k}: {v: .4f}  "
-        if _str:
-            self.logger.info(_str)
+    @staticmethod
+    def _handle_value(value):
+        if isinstance(value, torch.Tensor):
+            try:
+                return value.item()
+            except ValueError:
+                return value.mean().item()
+        return value
 
-    def info_metrics(self, metrics, epoch=None, step=None):
-        if isinstance(metrics, str):
-            self.logger.info(metrics)
+    @rank_zero_only
+    def log_metrics(self, metrics, step=None):
+        if len(metrics) == 0:
             return
+
+        metrics_str = "  ".join([
+            f"{k}: {self._handle_value(v):<4.4f}" for k, v in metrics.items()
+            if k != 'epoch'
+        ])
+
+        if metrics_str.strip() == '':
+            return
+
+        if step is not None:
+            metrics_str = f"step: {step:<6d} :: " + metrics_str
+        if 'epoch' in metrics:
+            metrics_str = f"epoch: {int(metrics['epoch']):<4d}  " + metrics_str
+        self.experiment.info(metrics_str)
+
+    @rank_zero_only
+    def log_hyperparams(self, params):
         _str = ""
-        for k, v in metrics.items():
-            if isinstance(v, torch.Tensor):
-                v = v.item()
-            _str += f"{k}: {v:.3f}  "
-        self.logger.info(f"epoch {epoch: <4d}: iter {step:<6d}:: {_str}")
+        for k in sorted(params):
+            v = params[k]
+            _str += Fore.LIGHTCYAN_EX + str(k) + "="
+            _str += Fore.WHITE + str(v) + ", "
+        self.experiment.info("\nhyper-parameters:\n" + _str + "\b\b" + "  ")
+        return
 
     @property
     def name(self):
@@ -111,6 +109,3 @@ class CustomLogger(LightningLoggerBase):
     @property
     def version(self):
         return 0
-
-    def log_hyperparams(self, params):
-        return super().log_hyperparams(params)

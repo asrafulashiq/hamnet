@@ -5,7 +5,12 @@ Code for HAM-Net: **A Hybrid Attention Mechanism for Weakly-Supervised Temporal 
 
 ## Prerequisites
 
-Pytorch-1.3+, pytorch_lightning-0.9.0, loguru, colorama, etc.
+Pytorch-1.5+, pytorch_lightning-1.1.*, loguru, colorama, etc.
+
+You can create a new conda environment using:
+```
+conda env create -f environment.yml
+```
 
 ## Training
 

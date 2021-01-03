@@ -1,14 +1,11 @@
-import numpy as np
 import torch
 import pytorch_lightning as pl
-from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
-from colorama import init, Fore
+from colorama import init
 import os
 import argparse
 from options import parse_args
 import utils
 import system
-from loguru import logger
 from system.system_anet import LightningSystem
 
 init(autoreset=True)
@@ -47,31 +44,17 @@ if __name__ == "__main__":
         ckpt = torch.load(config.ckpt)['state_dict']
         model.load_state_dict(ckpt)
 
-    # callbacks
-    checkpoint_callback = ModelCheckpoint(
-        filepath=config.save_path,
-        save_top_k=1,
-        # monitor='mAP',
-        mode='max',
-        save_weights_only=True,
-        verbose=True,
-        period=config.check_val_every_n_epoch)
-
     trainer = pl.Trainer(
         logger=system.CustomLogger(config=config),
-        checkpoint_callback=checkpoint_callback,
-        early_stop_callback=False,
+        checkpoint_callback=False,
         default_root_dir=config.save_path,
         gpus=config.gpus,
-        max_epochs=config.max_epoch,
-        check_val_every_n_epoch=config.check_val_every_n_epoch,
+        max_epochs=config.max_epochs,
         progress_bar_refresh_rate=config.progress_refresh,
-        fast_dev_run=False,
-        # gradient_clip_val=config.gradient_clip_val,
-        callbacks=[system.LatestCheckpoint(config.save_path, verbose=False)],
-        num_sanity_val_steps=0)
+        callbacks=[system.LatestCheckpoint(config.save_path, verbose=False)])
 
     if config.test:
         trainer.test(model)
     else:
         trainer.fit(model)
+        trainer.test(ckpt_path=None)
