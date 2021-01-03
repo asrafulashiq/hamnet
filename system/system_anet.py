@@ -55,7 +55,7 @@ class LightningSystem(pl.LightningModule):
 
         parser.add_argument("--lm_1", type=float, default=0.25)
         parser.add_argument("--lm_2", type=float, default=2)
-        parser.add_argument("--gradient_clip_val", type=float, default=1)
+        parser.add_argument('--gamma-oic', type=float, default=0.2)
 
         parser.add_argument("--drop_thres", type=float, default=0.2)
         parser.add_argument("--drop_prob", type=float, default=0.5)

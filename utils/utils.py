@@ -4,7 +4,6 @@ from scipy.interpolate import interp1d
 import os
 import sys
 import random
-import config
 import torch.nn as nn
 
 

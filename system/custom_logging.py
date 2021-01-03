@@ -55,8 +55,6 @@ class CustomLogger(LightningLoggerBase):
                             format="{time: MM-DD at HH:mm} | {message}",
                             level="DEBUG")
 
-        self.logger.info("\n" + str(config))
-
     @property
     def experiment(self):
         return self.logger

@@ -24,6 +24,14 @@ conda env create -f environment.yml
 
 ## How to Run
 
+### Download Data
+
+The ground-truth and I3D features for THUMOS14 and ActivitiNet1.2 dataset can be downloaded from here:
+
+[Box Download Link](https://rpi.box.com/s/hf6djlgs7vnl7a2oamjt0vkrig42pwho)
+
+Please put the downloaded files/folders under `data/` directory.
+
 ### Training
 
 To run HAM-Net on *Thumos14* dataset:
