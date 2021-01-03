@@ -51,7 +51,7 @@ if __name__ == "__main__":
         gpus=config.gpus,
         max_epochs=config.max_epochs,
         progress_bar_refresh_rate=config.progress_refresh,
-        callbacks=[system.LatestCheckpoint(config.save_path, verbose=False)])
+        callbacks=[system.LatestCheckpoint(config.save_path, verbose=True)])
 
     if config.test:
         trainer.test(model)
