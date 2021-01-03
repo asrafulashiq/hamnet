@@ -12,12 +12,13 @@
 
 Code for HAM-Net: **A Hybrid Attention Mechanism for Weakly-Supervised Temporal Action Localization**
 
+[Paper](https://drive.google.com/file/d/16z4PyE_t6n6O1akN2OeAOVYemif7A8Nd/view?usp=sharing)
 
 ## Prerequisites
 
-**Pytorch-1.5+**, **pytorch_lightning-1.1.***, loguru, colorama, etc.
+PyTorch-1.7.1, pytorch_lightning-1.1.2, loguru, colorama, etc. Older versions of PyTorch(1.3+) and pytorch-lightning(0.9+) should also work but not tested. 
 
-You can create a new conda environment with all dependencies using:
+You can create a new conda environment with all the dependencies using:
 ```
 conda env create -f environment.yml
 ```
@@ -34,7 +35,7 @@ Please put the downloaded files/folders under `data/` directory.
 
 ### Training
 
-To run HAM-Net on *Thumos14* dataset:
+To train HAM-Net on *Thumos14* dataset:
 
 ```python
 
@@ -54,6 +55,7 @@ For ActivityNet-1.2, use `main_anet.py` script.
 
 
 ## Citation
+
 ```
 @article{YourName,
   title={Your Title},
