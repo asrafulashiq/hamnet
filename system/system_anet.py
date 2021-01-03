@@ -66,16 +66,6 @@ class LightningSystem(pl.LightningModule):
         parser.add_argument("--drop-prob", type=float, default=0.5)
         parser.add_argument('--adl-include-min', type=str, default='true')
 
-        parser.add_argument("--lm_1_orig", type=float, default=0.25)
-        parser.add_argument("--lm_1_drop", type=float, default=0.25)
-        parser.add_argument("--lm_2_orig", type=float, default=2)
-        parser.add_argument("--lm_2_drop", type=float, default=2)
-
-        parser.add_argument("--gradient_clip_val", type=float, default=1)
-
-        parser.add_argument("--lm_drop", type=float, default=0.5)
-        parser.add_argument("--lm_mil", type=float, default=0.5)
-
         parser.add_argument("--batch-size", type=float, default=20)
 
         parser.add_argument("--min-percent", type=float, default=1.0)
@@ -231,10 +221,11 @@ class LightningSystem(pl.LightningModule):
                                             rat=self.hparams.rat,
                                             reduce=None)
 
-        loss_base = (self.hparams.lm_1_orig * loss_1_orig +
-                     self.hparams.lm_2_orig * loss_2_orig_supp).mean()
-        loss_drop = (self.hparams.lm_1_drop * loss_1_drop +
-                     self.hparams.lm_2_drop * loss_2_drop_supp).mean()
+        wt = self.hparams.drop_prob
+
+        loss_1 = (wt * loss_1_drop + (1 - wt) * loss_1_orig).mean()
+
+        loss_2 = (wt * loss_2_drop_supp + (1 - wt) * loss_2_orig_supp).mean()
 
         # loss_norm = torch.mean(torch.norm(element_atn, p=1, dim=-2))
         elem_sort = element_atn.sort(dim=-2)[0]
@@ -250,19 +241,15 @@ class LightningSystem(pl.LightningModule):
         # loss_ex = 0
 
         # total loss
-        total_loss = (
-            self.hparams.lm_mil * loss_base +
-            self.hparams.lm_drop * loss_drop +
-            #self.hparams.lm_1 * loss_1 + self.hparams.lm_2 * loss_2 +
-            self.hparams.alpha * loss_norm + self.hparams.beta * loss_guide)
+        total_loss = (self.hparams.lm_1 * loss_1 + self.hparams.lm_2 * loss_2 +
+                      self.hparams.alpha * loss_norm +
+                      self.hparams.beta * loss_guide)
         #   self.hparams.gamma * loss_top +
         # self.hparams.lm_cont * loss_cont + self.hparams.lm_sup * loss_sup)
         tqdm_dict = {
             "loss_train": total_loss,
-            # "loss_1": loss_1,
-            # "loss_2": loss_2,
-            "loss_base": loss_base,
-            "loss_drop": loss_drop,
+            "loss_1": loss_1,
+            "loss_2": loss_2,
             "loss_1o": loss_1_orig.mean(),
             "loss_1d": loss_1_drop.mean(),
             "loss_2o": loss_2_orig_supp.mean(),
@@ -273,46 +260,6 @@ class LightningSystem(pl.LightningModule):
         }
 
         return total_loss, tqdm_dict
-
-        # wt = self.hparams.drop_prob
-
-        # loss_1 = (wt * loss_1_drop + (1 - wt) * loss_1_orig).mean()
-
-        # loss_2 = (wt * loss_2_drop_supp + (1 - wt) * loss_2_orig_supp).mean()
-
-        # # loss_norm = torch.mean(torch.norm(element_atn, p=1, dim=-2))
-        # elem_sort = element_atn.sort(dim=-2)[0]
-
-        # loss_norm = elem_sort[:, :int(self.hparams.num_segments *
-        #                               self.hparams.min_percent)].mean()
-
-        # # guide loss
-        # loss_guide = (1 - element_atn -
-        #               element_logits.softmax(-1)[..., [-1]]).abs().mean()
-
-        # # loss_ex = (-atn_supp * torch.log(atn_supp + 1e-5)).mean()
-        # # loss_ex = 0
-
-        # # total loss
-        # total_loss = (self.hparams.lm_1 * loss_1 + self.hparams.lm_2 * loss_2 +
-        #               self.hparams.alpha * loss_norm +
-        #               self.hparams.beta * loss_guide)
-        # #   self.hparams.gamma * loss_top +
-        # # self.hparams.lm_cont * loss_cont + self.hparams.lm_sup * loss_sup)
-        # tqdm_dict = {
-        #     "loss_train": total_loss,
-        #     "loss_1": loss_1,
-        #     "loss_2": loss_2,
-        #     "loss_1o": loss_1_orig.mean(),
-        #     "loss_1d": loss_1_drop.mean(),
-        #     "loss_2o": loss_2_orig_supp.mean(),
-        #     "loss_2d": loss_2_drop_supp.mean(),
-        #     # "loss_ex": loss_ex,
-        #     "loss_norm": loss_norm,
-        #     "loss_guide": loss_guide,
-        # }
-
-        # return total_loss, tqdm_dict
 
     def topkloss(self,
                  element_logits,
