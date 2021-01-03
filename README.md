@@ -48,7 +48,7 @@ To evaluate on *Thumos14* dataset:
 
 ```python
 
-python main.py --ckpt [checkpoint_path]
+python main.py --test --ckpt [checkpoint_path]
 ```
 
 For ActivityNet-1.2, use `main_anet.py` script.
