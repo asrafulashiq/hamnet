@@ -2,21 +2,28 @@
 
 # HAM-Net
 
+</div>
+
+
+This repository contains code for the AAAI 2021 paper: 
+
+**[A Hybrid Attention Mechanism for Weakly-Supervised Temporal Action Localization](https://arxiv.org/abs/2101.00545)**
+
+## Overview
+
 <p align="center">
   <img src="data/hamnet_model.png" width="600">
 </p>
 
 
-</div>
-
-
-Code for HAM-Net: **A Hybrid Attention Mechanism for Weakly-Supervised Temporal Action Localization**
-
-[Paper](https://drive.google.com/file/d/16z4PyE_t6n6O1akN2OeAOVYemif7A8Nd/view?usp=sharing)
 
 ## Prerequisites
 
-PyTorch-1.7.1, pytorch_lightning-1.1.2, loguru, colorama, etc. Older versions of PyTorch(1.3+) and pytorch-lightning(0.9+) should also work but not tested. 
+- PyTorch 1.7.1 
+- pytorch-lightning 1.1.2
+- loguru, colorama, etc. 
+
+Older versions of PyTorch(1.3+) and pytorch-lightning(0.9+) should also work but not tested. 
 
 You can create a new conda environment with all the dependencies using:
 ```
@@ -42,6 +49,8 @@ To train HAM-Net on *Thumos14* dataset:
 python main.py
 ```
 
+Please check `options.py` to know more about the available cli arguments.
+
 ### Testing
 
 To evaluate on *Thumos14* dataset:
@@ -56,11 +65,21 @@ For ActivityNet-1.2, use `main_anet.py` script.
 
 ## Citation
 
+If you find this repo useful for your research, please consider citing the paper:
+
 ```
-@article{YourName,
-  title={Your Title},
-  author={Your team},
-  journal={Location},
-  year={Year}
+@misc{islam2021hybrid,
+      title={A Hybrid Attention Mechanism for Weakly-Supervised Temporal Action Localization}, 
+      author={Ashraful Islam and Chengjiang Long and Richard J. Radke},
+      year={2021},
+      eprint={2101.00545},
+      archivePrefix={arXiv},
+      primaryClass={cs.CV}
 }
 ``` 
+
+## Acknowledgement
+
+- [BaSNet](https://github.com/Pilhyeon/BaSNet-pytorch)
+- [ActivityNet](https://github.com/activitynet/ActivityNet)
+- [WSAD](https://github.com/asrafulashiq/wsad)
