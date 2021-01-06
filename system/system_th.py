@@ -160,22 +160,28 @@ class LightningSystem(pl.LightningModule):
                                                   atn_drop,
                                                   include_min=True)
 
+        # BCL
         loss_1_orig, _ = self.topkloss(element_logits,
                                        labels,
                                        is_back=True,
                                        rat=self.hparams.rat,
                                        reduce=None)
+
+        # HAL
         loss_1_drop, _ = self.topkloss(element_logits_drop,
                                        labels,
                                        is_back=True,
                                        rat=self.hparams.rat,
                                        reduce=None)
 
+        # SAL
         loss_2_orig_supp, _ = self.topkloss(element_logits_supp,
                                             labels,
                                             is_back=False,
                                             rat=self.hparams.rat,
                                             reduce=None)
+
+        # SSAL
         loss_2_drop_supp, _ = self.topkloss(element_logits_drop_supp,
                                             labels,
                                             is_back=False,
