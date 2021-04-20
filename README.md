@@ -1,6 +1,8 @@
 <div align="center">    
 
 # HAM-Net
+[![Paper](https://img.shields.io/badge/paper-arxiv:2101.00545-red)](https://arxiv.org/abs/2101.00545)
+[![Conference](https://img.shields.io/badge/AAAI-2021-purple)](https://aaai.org/Conferences/AAAI-21/)
 
 </div>
 
